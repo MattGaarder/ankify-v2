@@ -1,6 +1,6 @@
 // electron-main.js
 // This runs in Electron's "main process" (not in Vue/Quasar frontend) - manages windows, tray, and system-level integration
-import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, screen } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, screen, ipcMain } from 'electron'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -19,7 +19,7 @@ async function createWindow () {
 
   mainWindow = new BrowserWindow({
     width: 400,
-    height: 170,
+    height: 270,
     show: false,               // start hidden (popover toggles show/hide)
     frame: false,              // no titlebar 
     resizable: false,
@@ -54,8 +54,6 @@ async function createWindow () {
     if (!mainWindow.webContents.isDevToolsOpened()) mainWindow.hide()
   })
   
-
-
   mainWindow.webContents.on('did-start-loading', () => {
     console.log('[main] renderer did-start-loading')
   })
@@ -130,7 +128,7 @@ app.whenReady().then(() => {
       }
   })
 
-  // --- Global shortcut (Cmd/Ctrl + Shift + F) to toggle popover ---
+  
   globalShortcut.register('CommandOrControl+Shift+F', () => togglePopover())
 
   // open DevTools detached for debugging
@@ -152,4 +150,23 @@ app.on('activate', () => {
   }
 })
 
+ipcMain.handle('window:hide', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide()
+})
 
+ipcMain.handle('window:close', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close() 
+})
+
+ipcMain.handle('dict:lookup', async (_event, query) => {
+  if (!query || typeof query !== 'string') return { ok: false, error: 'Empty query' }
+  try {
+    const url = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(query)}`
+    const res = await fetch(url) 
+    if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
+    const json = await res.json()
+    return { ok: true, data: json }
+  } catch (err) {
+    return { ok: false, error: String(err) }
+  }
+})
