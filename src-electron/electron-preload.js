@@ -32,5 +32,6 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('ankify', {
   hidePopover: () => ipcRenderer.invoke('window:hide'),
   closePopover: () => ipcRenderer.invoke('window:close'),
-  dictLookup: (text) => ipcRenderer.invoke('dict:lookup', text)
+  dictLookup: (text) => ipcRenderer.invoke('dict:lookup', text),
+  log: (...args) => ipcRenderer.send('ankify:log', args),
 })
