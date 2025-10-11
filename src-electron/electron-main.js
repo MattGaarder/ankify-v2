@@ -5,9 +5,24 @@ import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import http from 'node:http';
-
+import kuromoji from 'kuromoji';
 import log from 'electron-log';
 
+let tokenizerPromise;
+function getTokenizer() {
+  if (!tokenizerPromise) {
+    const dicPath = path.join(process.cwd(), 'node_modules/kuromoji/dict'); // or packaged path
+    tokenizerPromise = new Promise((res, rej) => {
+      kuromoji.builder({ dicPath }).build((err, t) => err ? rej(err) : res(t));
+    });
+  }
+  return tokenizerPromise;
+}
+
+ipcMain.handle('morph:tokenize', async (_e, text) => {
+  const t = await getTokenizer();
+  return t.tokenize(text || '');
+});
 // fallback in case process.platform is undefined
 const platform = process.platform || os.platform()
 
