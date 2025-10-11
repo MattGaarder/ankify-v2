@@ -4,6 +4,7 @@ import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, screen, ip
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import http from 'node:http';
 
 import log from 'electron-log';
 
@@ -64,7 +65,8 @@ async function createWindow () {
   })
 
   mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[main] renderer did-finish-load')
+    console.log('[main] renderer did-finish-load');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   })
 }
 
@@ -180,4 +182,51 @@ ipcMain.on('ankify:log', (_evt, args) => {
   // Mirror to terminal and file
   console.log('[RENDERER]', ...args);
   log.info('[RENDERER]', ...args);
+});
+
+ipcMain.handle('ankiconnect:invoke', async (_event, { action, params }) => {
+  const json = JSON.stringify({ action, version: 6, params });
+
+  const { status, body } = await new Promise((resolve, reject) => {
+    const request = http.request(
+      {
+        host: '127.0.0.1',
+        port: 8765,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(json) // optional but explicit
+        }
+      },
+      (response) => {
+        response.setEncoding('utf8'); // ensure chunks are strings
+        let raw = '';
+        response.on('data', (chunk) => { raw += chunk; });
+        response.on('end', () => resolve({ status: response.statusCode ?? 0, body: raw }));
+      }
+    );
+
+    // Optional: protect against hangs
+    request.setTimeout(5000, () => {
+      request.destroy(new Error('Request timed out'));
+    });
+
+    request.on('error', reject);
+    request.write(json);
+    request.end();
+  });
+
+  if (status !== 200) {
+    throw new Error(`AnkiConnect HTTP ${status}: ${body}`);
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(body || '{}');
+  } catch (e) {
+    throw new Error(`Invalid JSON from AnkiConnect: ${String(e)}`);
+  }
+
+  if (parsed.error) throw new Error(parsed.error);
+  return parsed.result;
 });

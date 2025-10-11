@@ -57,6 +57,8 @@
 
 
 <script setup>
+  console.log('ankify bridge keys:', Object.keys(window.ankify || {}));
+
   import { ref } from 'vue';
   import ResultList from 'src/components/ResultList.vue';
 
@@ -124,15 +126,46 @@
     }
   }
 
-  async function onAddNote(item) {
+  async function onAddNote() {
+    console.log('[onAddNote] start'); 
     try {
-      const note = noteFromResult(item) // defined below
-      const id = await invokeAnki('addNote', { note })
-      window.ankify?.log?.('Added note', id)
+      const decks = await window.ankify.invokeAnki('deckNames', {});
+      console.log('Decks:', decks);
+
+      // What models exist?
+      const models = await window.ankify.invokeAnki('modelNames', {});
+      console.log('Models:', models);
+      for (const m of models) {
+        const f = await window.ankify.invokeAnki('modelFieldNames', { modelName: m });
+        console.log(m, '→', f);
+}
+
+      // What are the exact field names for the model you plan to use?
+      const modelName = 'Basic (and reversed card)'; // pick the one you plan to use
+      const fields = await window.ankify.invokeAnki('modelFieldNames', { modelName });
+      console.log('Fields for model:', modelName, fields);
+      // Expect something like ["Front", "Back"] for the stock template
+      console.log('Fields for Basic:', fields);
+      // const note = noteFromResult(item); 
+      const id = await window.ankify.invokeAnki('addNote', {
+        note: {
+          deckName: 'Ankify',
+          modelName: 'Basic (and reversed card)',
+          fields: {
+            Front: 'テスト',
+            Back: 'test',
+          },
+          tags: ['ankify'],
+          options: { allowDuplicate: true, duplicateScope: 'deck' }
+        }
+      });
+      console.log('addNote id:', id);
+      window.ankify?.log?.('Added note', id);
+
       // optional Quasar notify:
       // $q.notify({ type: 'positive', message: 'Added to Anki' })
     } catch (e) {
-      window.ankify?.log?.('Add note failed', String(e))
+      window.ankify?.log?.('Add note failed', String(e));
     }
   }
 
@@ -146,41 +179,41 @@
 
 
   // Build the note from a normalized item
-  async function invokeAnki(action, params = {}, apiKey) {
-    const body = { action, version: 6, params }
-    if (apiKey) body.key = apiKey
-    const resp = await fetch('http://127.0.0.1:8765', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    })
-    console.log(resp);
-    const data = await resp.json()
-    console.log(data);
-    if (data.error) throw new Error(data.error)
-    return data.result
-  }
+  // async function invokeAnki(action, params = {}, apiKey) {
+  //   const body = { action, version: 6, params }
+  //   if (apiKey) body.key = apiKey
+  //   const resp = await fetch('http://127.0.0.1:8765', {
+  //     method: 'POST',
+  //     headers: { 'Content-Type': 'application/json' },
+  //     body: JSON.stringify(body)
+  //   })
+  //   console.log(resp);
+  //   const data = await resp.json()
+  //   console.log(data);
+  //   if (data.error) throw new Error(data.error)
+  //   return data.result
+  // }
 
-  function noteFromResult(item) {
-    const { headword, senses } = item
-    const backLines = senses.length ? senses.map((g, i) => `${i + 1}. ${g}`) : ['(no gloss)']
+  // function noteFromResult(item) {
+  //   const { headword, senses } = item
+  //   const backLines = senses.length ? senses.map((g, i) => `${i + 1}. ${g}`) : ['(no gloss)']
 
-    const note = {
-      deckName: 'Japanese',
-      modelName: 'Basic',
-      fields: {
-        Front: headword,
-        Back: backLines.join('\n')
-      },
-      tags: ['ankify'],
-      options: {
-        allowDuplicate: false,
-        duplicateScope: 'deck',
-        duplicateScopeOptions: { deckName: 'Japanese', checkChildren: false, checkAllModels: false }
-      }
-    }
-    return note
-  }
+  //   const note = {
+  //     deckName: 'Ankify',
+  //     modelName: 'Basic',
+  //     fields: {
+  //       Front: headword,
+  //       Back: backLines.join('\n')
+  //     },
+  //     tags: ['ankify'],
+  //     options: {
+  //       allowDuplicate: false,
+  //       duplicateScope: 'deck',
+  //       duplicateScopeOptions: { deckName: 'Ankify', checkChildren: false, checkAllModels: false }
+  //     }
+  //   }
+  //   return note
+  // }
 </script>
 
 <style>

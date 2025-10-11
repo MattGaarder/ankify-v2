@@ -34,4 +34,5 @@ contextBridge.exposeInMainWorld('ankify', {
   closePopover: () => ipcRenderer.invoke('window:close'),
   dictLookup: (text) => ipcRenderer.invoke('dict:lookup', text),
   log: (...args) => ipcRenderer.send('ankify:log', args),
+  invokeAnki: (action, params) => ipcRenderer.invoke('ankiconnect:invoke', {action, params})
 })
