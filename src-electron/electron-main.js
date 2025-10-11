@@ -179,7 +179,7 @@ ipcMain.handle('dict:lookup', async (_event, query) => {
 })
 
 ipcMain.on('ankify:log', (_evt, args) => {
-  // Mirror to terminal and file
+
   console.log('[RENDERER]', ...args);
   log.info('[RENDERER]', ...args);
 });
@@ -195,18 +195,17 @@ ipcMain.handle('ankiconnect:invoke', async (_event, { action, params }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(json) // optional but explicit
+          'Content-Length': Buffer.byteLength(json) 
         }
       },
       (response) => {
-        response.setEncoding('utf8'); // ensure chunks are strings
+        response.setEncoding('utf8'); 
         let raw = '';
         response.on('data', (chunk) => { raw += chunk; });
         response.on('end', () => resolve({ status: response.statusCode ?? 0, body: raw }));
       }
     );
 
-    // Optional: protect against hangs
     request.setTimeout(5000, () => {
       request.destroy(new Error('Request timed out'));
     });
