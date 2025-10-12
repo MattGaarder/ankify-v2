@@ -77,12 +77,6 @@
   import { ref, onMounted } from 'vue';
   import ResultList from 'src/components/ResultList.vue';
 
-
-  // const DIC_PATH = (import.meta.env.BASE_URL || '/') + 'kuromoji/dict/';
-
-  // // Initialize kuromoji tokenizer composable with dynamic path
-  // const { tokenize } = useKuromoji(DIC_PATH);
-
   onMounted(() => {
     try {
       console.log('ankify bridge keys:', Object.keys(window.ankify || {}))
@@ -90,47 +84,6 @@
       console.warn('ankify bridge not available yet:', e)
     }
   });
-
-  // onMounted(async () => {
-  //   const base = (import.meta.env.BASE_URL || '/') + 'kuromoji/dict/';
-  //   const files = [
-  //     'base.dat.gz',
-  //     'cc.dat.gz',
-  //     'check.dat.gz',
-  //     'tid_map.dat.gz',
-  //     'tid_pos.dat.gz',
-  //     'tid.dat.gz',
-  //     'unk_char.dat.gz',
-  //     'unk_compat.dat.gz',
-  //     'unk_invoke.dat.gz',
-  //     'unk_map.dat.gz',
-  //     'unk_pos.dat.gz',
-  //     'unk.dat.gz',
-  //   ];
-
-  //   for (const f of files) {
-  //     const url = base + f;
-  //     try {
-  //       const resp = await fetch(url);
-  //       const enc = resp.headers.get('content-encoding');
-  //       const ctyp = resp.headers.get('content-type');
-  //       const ok = resp.ok;
-  //       let sig = null;
-
-  //       if (ok) {
-  //         const buf = await resp.arrayBuffer();
-  //         const v = new Uint8Array(buf.slice(0, 4));
-  //         sig = Array.from(v).join(',');
-  //       }
-
-  //       console.log('[probe]', f, {
-  //         url, ok, status: resp.status, 'content-type': ctyp, 'content-encoding': enc, sig
-  //       });
-  //     } catch (e) {
-  //       console.warn('[probe] failed', f, e);
-  //     }
-  //   }
-  // });
 
   const text = ref('');
   const dense = ref(true);
@@ -232,7 +185,6 @@
       analyzing.value = false;
     }
   }
-
 
   function toggleSelect(term) {
     const set = selectedTokens.value
