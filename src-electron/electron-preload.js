@@ -27,6 +27,10 @@
  *   }
  * }
  */
+// electron-preload.js
+// Runs in the **renderer** context but before Vue app.
+// We expose a safe, minimal API on window.ankify so the renderer can
+// call into main process without Node.js privileges.
 import { contextBridge, ipcRenderer } from 'electron'
 
 contextBridge.exposeInMainWorld('ankify', {
