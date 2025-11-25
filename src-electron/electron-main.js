@@ -12,7 +12,7 @@
 //  - Anything with console.log in THIS FILE = Electron main process logs (in your terminal)
 //  - Renderer console.log = DevTools console of the BrowserWindow
 
-import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, screen, ipcMain } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain } from 'electron';
 
 import path from 'node:path';
 import os from 'node:os';
@@ -22,7 +22,7 @@ import http from 'node:http';
 import kuromoji from 'kuromoji';
 import log from 'electron-log';
 
-const log = (...args) => console.log('[main]', ...args);
+const logMain = (...args) => console.log('[main]', ...args);
 
 // Electron can be ESM; emulate __dirname safely for resolving paths.
 const currentDir = fileURLToPath(new URL('.', import.meta.url));
@@ -35,7 +35,7 @@ let tray = null
 // `project-root/node_modules/kuromoji/dict`
 function resolveKuromojiDicPathDev() {
   const dicPath = path.join(process.cwd(), 'node_modules', 'kuromoji', 'dict');
-  log('Kuromoji dicPath (dev) ->', dicPath);
+  logMain('Kuromoji dicPath (dev) ->', dicPath);
   return dicPath;
 }
 
@@ -46,7 +46,7 @@ let tokenizerPromise;
 
 function getTokenizer() {
   if (!tokenizerPromise) {
-    const dicPath = path.join(process.cwd(), 'node_modules/kuromoji/dict'); // or packaged path
+    const dicPath = resolveKuromojiDicPathDev();
     tokenizerPromise = new Promise((res, rej) => {
       kuromoji.builder({ dicPath }).build((err, t) => err ? rej(err) : res(t));
     });
@@ -59,14 +59,14 @@ const platform = process.platform || os.platform();
 // Create the frameless window that behaves like a popover.
 async function createWindow () {
   mainWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
-    show: false,               
-    frame: false, // no titlebar 
-    resizable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    transparent: true,         
+    width: 500,
+    height: 600,
+    show: false,
+    frame: true,
+    resizable: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    transparent: false,
     webPreferences: {
       devTools: true,
       // Isolate main & renderer for security.
@@ -78,7 +78,7 @@ async function createWindow () {
         path.join(process.env.QUASAR_ELECTRON_PRELOAD_FOLDER,
         'electron-preload' + process.env.QUASAR_ELECTRON_PRELOAD_EXTENSION)
       )
-    }    
+    }
   });
   // In dev, Quasar serves your app on a dev server; in prod, load local file.
   if (process.env.DEV) {
@@ -95,9 +95,9 @@ async function createWindow () {
   });
 
   mainWindow.on('blur', () => {
-    if (!mainWindow.webContents.isDevToolsOpened()) mainWindow.hide()
+    // if (!mainWindow.webContents.isDevToolsOpened()) mainWindow.hide()
   });
-  
+
   mainWindow.webContents.on('did-start-loading', () => {
     console.log('[main] renderer did-start-loading')
   });
@@ -107,37 +107,14 @@ async function createWindow () {
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   });
 }
-// Position the popover under macOS toolbar and display.
-function positionNearTrayAndShow () {
-  if (!tray || !mainWindow) return
-
-  const icon = tray.getBounds()
-  const display = screen.getDisplayNearestPoint({ x: icon.x, y: icon.y }).bounds
-  const [winW, winH] = mainWindow.getSize()
-  const PADDING = 8
-
-  // Ideal centered X under the tray icon
-  const idealX = icon.x + icon.width / 2 - winW / 2
-
-  // Clamp X so we stay fully on-screen
-  const leftEdge  = display.x
-  const rightEdge = display.x + display.width - winW
-  const x = Math.round(Math.max(leftEdge, Math.min(idealX, rightEdge)))
-
-  // Y depends on platform (menu bar vs taskbar)
-  const y = platform === 'darwin'
-    ? Math.round(icon.y + icon.height + PADDING)   // below menu bar
-    : Math.round(icon.y - winH - PADDING)          // above taskbar
-
-  mainWindow.setPosition(x, y, false)
-  mainWindow.show()
-  mainWindow.focus()
-}
 
 function togglePopover () {
   if (!mainWindow) return
   if (mainWindow.isVisible()) mainWindow.hide()
-  else positionNearTrayAndShow()
+  else {
+    mainWindow.show()
+    mainWindow.focus()
+  }
 }
 
 //  --- App Lifecycle -----------------------------------------------
@@ -150,8 +127,8 @@ app.whenReady().then(() => {
   const trayPath = path.resolve(process.cwd(), 'src-electron/icons/trayTemplate.png');
   const trayImage = nativeImage.createFromPath(trayPath).resize({ width: 15, height: 15 });
   trayImage.setTemplateImage(true);
-  tray = new Tray(trayImage); 
-  tray.setTitle('⚡');                
+  tray = new Tray(trayImage);
+  tray.setTitle('⚡');
   tray.setToolTip('Ankify');
 
   // Right-click context menu
@@ -167,12 +144,7 @@ app.whenReady().then(() => {
   ]))
   tray.on('click', () => {
     console.log('[main] tray clicked')
-    if (!mainWindow) return
-    if (mainWindow.isVisible()) {
-       mainWindow.hide();
-      } else { 
-        positionNearTrayAndShow();
-      }
+    togglePopover();
   })
   globalShortcut.register('CommandOrControl+Shift+F', () => togglePopover());
 
@@ -207,7 +179,7 @@ ipcMain.handle('dict:lookup', async (_event, query) => {
   if (!query || typeof query !== 'string') return { ok: false, error: 'Empty query' };
   try {
     const url = `https://jisho.org/api/v1/search/words?keyword=${encodeURIComponent(query)}`
-    const res = await fetch(url) 
+    const res = await fetch(url)
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` }
     const json = await res.json()
     return { ok: true, data: json }
@@ -231,13 +203,13 @@ ipcMain.handle('ankiconnect:invoke', async (_event, { action, params }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(json) 
+          'Content-Length': Buffer.byteLength(payload)
         }
       },
       // callback (response) => { … } runs once the remote server (AnkiConnect) sends back an HTTP response.
       // response object emits 'data' events as chunks of text arrive over the network & emits an 'end' event once all chunks are done and the connection is closed.
       (response) => {
-        response.setEncoding('utf8'); 
+        response.setEncoding('utf8');
         let raw = '';
         response.on('data', (chunk) => { raw += chunk; });
         response.on('end', () => resolve({ status: response.statusCode ?? 0, body: raw }));
