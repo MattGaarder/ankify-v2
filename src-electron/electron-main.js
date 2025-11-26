@@ -12,7 +12,7 @@
 //  - Anything with console.log in THIS FILE = Electron main process logs (in your terminal)
 //  - Renderer console.log = DevTools console of the BrowserWindow
 
-import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain } from 'electron';
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, screen } from 'electron';
 
 import path from 'node:path';
 import os from 'node:os';
@@ -61,8 +61,10 @@ async function createWindow () {
   mainWindow = new BrowserWindow({
     width: 500,
     height: 600,
+    minWidth: 400,
+    minHeight: 300,
     show: false,
-    frame: true,
+    frame: false,
     resizable: true,
     alwaysOnTop: false,
     skipTaskbar: false,
@@ -110,8 +112,43 @@ async function createWindow () {
 
 function togglePopover () {
   if (!mainWindow) return
-  if (mainWindow.isVisible()) mainWindow.hide()
-  else {
+  if (mainWindow.isVisible()) {
+    mainWindow.hide()
+  } else {
+    // Position window next to tray icon
+    if (tray) {
+      const trayBounds = tray.getBounds()
+      const windowBounds = mainWindow.getBounds()
+
+      // Get screen work area to ensure window stays on screen
+      const { workArea } = screen.getPrimaryDisplay()
+
+      // On macOS, tray icons are in the menu bar at the top of the screen
+      // Position window BELOW the tray icon, centered horizontally
+      let x = trayBounds.x + (trayBounds.width / 2) - (windowBounds.width / 2)
+      let y = trayBounds.y + trayBounds.height + 5 // 5px gap below icon
+
+      // Ensure window doesn't go off right edge
+      if (x + windowBounds.width > workArea.x + workArea.width) {
+        x = workArea.x + workArea.width - windowBounds.width - 10
+      }
+
+      // Ensure window doesn't go off left edge
+      if (x < workArea.x) {
+        x = workArea.x + 10
+      }
+
+      // If window would go below bottom of screen, position above tray instead
+      if (y + windowBounds.height > workArea.y + workArea.height) {
+        y = trayBounds.y - windowBounds.height - 5
+      }
+
+      // Ensure window doesn't go above top of screen (fallback)
+      y = Math.max(workArea.y, y)
+
+      mainWindow.setPosition(Math.round(x), Math.round(y))
+    }
+
     mainWindow.show()
     mainWindow.focus()
   }
@@ -123,12 +160,11 @@ app.whenReady().then(() => {
   createWindow();
   console.log('[main] creating tray');
 
-  // Create a tray icon.
-  const trayPath = path.resolve(process.cwd(), 'src-electron/icons/trayTemplate.png');
-  const trayImage = nativeImage.createFromPath(trayPath).resize({ width: 15, height: 15 });
+  // Create a tray icon using the custom Anki logo
+  const trayPath = path.resolve(process.cwd(), 'src-electron/icons/ankiTrayTemplate.png');
+  const trayImage = nativeImage.createFromPath(trayPath).resize({ width: 18, height: 18 });
   trayImage.setTemplateImage(true);
   tray = new Tray(trayImage);
-  tray.setTitle('⚡');
   tray.setToolTip('Ankify');
 
   // Right-click context menu
@@ -172,6 +208,32 @@ ipcMain.handle('window:hide', () => {
 });
 ipcMain.handle('window:close', () => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+});
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.minimize();
+});
+ipcMain.handle('window:toggle-maximize', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow.maximize();
+    }
+  }
+});
+ipcMain.handle('window:resize', (_event, { width, height }) => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    // Optional: Limit height to work area
+    const { workArea } = screen.getPrimaryDisplay();
+    const maxHeight = workArea.height - 20; // buffer
+    const newHeight = Math.min(height, maxHeight);
+
+    const currentBounds = mainWindow.getBounds();
+    // Only resize if significantly different to avoid loops
+    if (Math.abs(currentBounds.height - newHeight) > 2 || Math.abs(currentBounds.width - width) > 2) {
+      mainWindow.setSize(width, Math.ceil(newHeight));
+    }
+  }
 });
 // --- IPC: Jisho lookup -------------------------------------------------
 // Renderer calls: await window.ankify.dictLookup(text)

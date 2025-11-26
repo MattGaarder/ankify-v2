@@ -2,100 +2,115 @@
 <template>
   <div class="column q-gutter-sm">
     <!-- Primary Results -->
-    <q-card v-for="(it, idx) in primaryItems" :key="`primary-${idx}`" flat bordered class="q-pa-sm">
-      <div class="row items-start justify-between q-mb-sm">
-        <div class="col q-pr-sm">
-          <div class="text-subtitle1 text-weight-medium">{{ getSelectedHeadword(idx, it) }}</div>
-          <div class="text-caption text-grey-7">{{ getSelectedGloss(idx, it) }}</div>
-        </div>
-        <div class="col-auto row q-gutter-xs items-center">
-          <q-btn dense round flat icon="add" :disable="(selected[idx] || []).length === 0"
-            :title="'Add to Anki (only selected senses)'" @click="emitAdd(idx, it)" />
-          <q-btn dense round flat icon="content_copy" @click="$emit('copy', it)" :title="'Copy'" />
-          <q-btn dense round flat icon="close" @click="$emit('remove', it)" :title="'Remove'" />
-        </div>
-      </div>
-
-      <!-- Divider between card preview and selector -->
-      <q-separator class="q-my-sm" />
-
-      <!-- Selection controls -->
-      <div class="row items-center q-gutter-sm q-mb-xs">
-        <div class="text-caption text-grey-7">{{ selected[idx].length }}/{{ it.senses.length }}</div>
-        <q-btn dense round flat size="sm" icon="check_box" @click="selectAll(idx, it)" :title="'Select all senses'" />
-        <q-btn dense round flat size="sm" icon="check_box_outline_blank" @click="selectNone(idx)"
-          :title="'Deselect all'" />
-      </div>
-
-      <div class="q-mt-xs">
-        <!-- Checkbox list -->
-        <div class="column q-gutter-xs">
-          <q-checkbox v-for="(senseItem, i) in getVisibleSenses(idx, it, false)" :key="i" dense
-            :model-value="selected[idx].includes(senseItem.originalIndex)"
-            @update:model-value="(val) => toggle(idx, senseItem.originalIndex, val)">
-            <template v-slot:default>
-              <span>{{ typeof senseItem.item === 'string' ? senseItem.item : senseItem.item.text }}</span>
-              <span v-if="senseItem.item.reading" class="text-grey-6"> ({{ senseItem.item.reading }})</span>
-            </template>
-          </q-checkbox>
-
-          <!-- Show more/less button -->
-          <q-btn v-if="getSensesList(it).length > SENSES_PREVIEW_LIMIT" flat dense size="sm"
-            :label="expanded[idx] ? 'Show less' : `Show ${getSensesList(it).length - SENSES_PREVIEW_LIMIT} more...`"
-            class="text-grey-7" @click="expanded[idx] = !expanded[idx]" />
-        </div>
-      </div>
-    </q-card>
-
-    <!-- Secondary Results (Collapsible) -->
-    <q-expansion-item v-if="secondaryItems.length > 0" dense expand-separator icon="more_horiz" label="More readings"
-      header-class="text-grey-7" class="q-mt-sm">
-      <q-card v-for="(it, idx) in secondaryItems" :key="`secondary-${idx}`" flat bordered class="q-pa-sm q-mt-sm">
+    <div class="primary-results">
+      <q-card v-for="(it, idx) in primaryItems" :key="`primary-${idx}`" flat bordered class="q-pa-sm bg-grey-9 q-mb-sm">
         <div class="row items-start justify-between q-mb-sm">
           <div class="col q-pr-sm">
-            <div class="text-subtitle1 text-weight-medium">{{ getSelectedHeadwordSecondary(idx, it) }}</div>
-            <div class="text-caption text-grey-7">{{ getSelectedGlossSecondary(idx, it) }}</div>
+            <div class="text-subtitle1 text-weight-medium text-white">{{ getSelectedHeadword(idx, it) }}</div>
+            <div class="text-caption text-grey-5">{{ getSelectedGloss(idx, it) }}</div>
           </div>
           <div class="col-auto row q-gutter-xs items-center">
-            <q-btn dense round flat icon="add" :disable="(secondarySelected[idx] || []).length === 0"
-              :title="'Add to Anki (only selected senses)'" @click="emitAddSecondary(idx, it)" />
-            <q-btn dense round flat icon="content_copy" @click="$emit('copy', it)" :title="'Copy'" />
-            <q-btn dense round flat icon="close" @click="$emit('remove', it)" :title="'Remove'" />
+            <q-btn dense round flat class="title-button" icon="add" :disable="(selected[idx] || []).length === 0"
+              :loading="addingItems.has(it.headword)" :title="'Add to Anki (only selected senses)'"
+              @click="emitAdd(idx, it)" color="white" />
+            <q-btn dense round flat class="title-button" icon="content_copy" @click="$emit('copy', it)" :title="'Copy'"
+              color="white" />
+            <q-btn dense round flat class="title-button" icon="close" @click="$emit('remove', it)" :title="'Remove'"
+              color="white" />
           </div>
         </div>
 
         <!-- Divider between card preview and selector -->
-        <q-separator class="q-my-sm" />
+        <q-separator class="q-my-sm" color="grey-8" />
 
         <!-- Selection controls -->
         <div class="row items-center q-gutter-sm q-mb-xs">
-          <div class="text-caption text-grey-7">{{ secondarySelected[idx].length }}/{{ it.senses.length }}</div>
-          <q-btn dense round flat size="sm" icon="check_box" @click="selectAllSecondary(idx, it)"
-            :title="'Select all senses'" />
-          <q-btn dense round flat size="sm" icon="check_box_outline_blank" @click="selectNoneSecondary(idx)"
-            :title="'Deselect all'" />
+          <div class="text-caption text-grey-5">{{ selected[idx].length }}/{{ it.senses.length }}</div>
+          <q-btn dense round flat size="sm" label="Select" @click="selectAll(idx, it)" :title="'Select all senses'"
+            color="grey-5" />
+          <q-btn dense round flat size="sm" label="Deselect" @click="selectNone(idx)" :title="'Deselect all'"
+            color="grey-5" />
         </div>
 
         <div class="q-mt-xs">
           <!-- Checkbox list -->
           <div class="column q-gutter-xs">
-            <q-checkbox v-for="(senseItem, i) in getVisibleSenses(idx, it, true)" :key="i" dense
-              :model-value="secondarySelected[idx].includes(senseItem.originalIndex)"
-              @update:model-value="(val) => toggleSecondary(idx, senseItem.originalIndex, val)">
+            <q-checkbox v-for="(senseItem, i) in getVisibleSenses(idx, it, false)" :key="i" dense
+              :model-value="selected[idx].includes(senseItem.originalIndex)"
+              @update:model-value="(val) => toggle(idx, senseItem.originalIndex, val)" color="primary"
+              class="text-grey-4">
               <template v-slot:default>
                 <span>{{ typeof senseItem.item === 'string' ? senseItem.item : senseItem.item.text }}</span>
-                <span v-if="senseItem.item.reading" class="text-grey-6"> ({{ senseItem.item.reading }})</span>
+                <span v-if="senseItem.item.reading" class="text-grey-5"> ({{ senseItem.item.reading }})</span>
               </template>
             </q-checkbox>
 
             <!-- Show more/less button -->
             <q-btn v-if="getSensesList(it).length > SENSES_PREVIEW_LIMIT" flat dense size="sm"
-              :label="secondaryExpanded[idx] ? 'Show less' : `Show ${getSensesList(it).length - SENSES_PREVIEW_LIMIT} more...`"
-              class="text-grey-7" @click="secondaryExpanded[idx] = !secondaryExpanded[idx]" />
+              :label="expanded[idx] ? 'Show less' : `Show ${getSensesList(it).length - SENSES_PREVIEW_LIMIT} more...`"
+              class="text-grey-5" @click="expanded[idx] = !expanded[idx]" />
           </div>
         </div>
       </q-card>
-    </q-expansion-item>
+    </div>
+
+    <!-- Secondary Results (Collapsible) -->
+    <div class="secondary-header-wrapper">
+      <q-expansion-item v-if="secondaryItems.length > 0" dense expand-separator icon="more_horiz" label="More readings"
+        header-class="text-grey-5 secondary-header" class="q-mt-sm">
+        <q-card v-for="(it, idx) in secondaryItems" :key="`secondary-${idx}`" flat bordered
+          class="q-pa-sm q-mt-sm bg-grey-9">
+          <div class="row items-start justify-between q-mb-sm">
+            <div class="col q-pr-sm">
+              <div class="text-subtitle1 text-weight-medium text-white">{{ getSelectedHeadwordSecondary(idx, it) }}
+              </div>
+              <div class="text-caption text-grey-5">{{ getSelectedGlossSecondary(idx, it) }}</div>
+            </div>
+            <div class="col-auto row q-gutter-xs items-center">
+              <q-btn dense round flat icon="add" :disable="(secondarySelected[idx] || []).length === 0"
+                :loading="addingItems.has(it.headword)" :title="'Add to Anki (only selected senses)'"
+                class="title-button" @click="emitAddSecondary(idx, it)" color="white" />
+              <q-btn dense round flat icon="content_copy" class="title-button" @click="$emit('copy', it)"
+                :title="'Copy'" color="white" />
+              <q-btn dense round flat icon="close" class="title-button" @click="$emit('remove', it)" :title="'Remove'"
+                color="white" />
+            </div>
+          </div>
+
+          <!-- Divider between card preview and selector -->
+          <q-separator class="q-my-sm" color="grey-8" />
+
+          <!-- Selection controls -->
+          <div class="row items-center q-gutter-sm q-mb-xs">
+            <div class="text-caption text-grey-5">{{ secondarySelected[idx].length }}/{{ it.senses.length }}</div>
+            <q-btn dense round flat size="sm" label="Select" @click="selectAllSecondary(idx, it)"
+              :title="'Select all senses'" color="grey-5" />
+            <q-btn dense round flat size="sm" label="Deselect" @click="selectNoneSecondary(idx)" :title="'Deselect all'"
+              color="grey-5" />
+          </div>
+
+          <div class="q-mt-xs">
+            <!-- Checkbox list -->
+            <div class="column q-gutter-xs">
+              <q-checkbox v-for="(senseItem, i) in getVisibleSenses(idx, it, true)" :key="i" dense
+                :model-value="secondarySelected[idx].includes(senseItem.originalIndex)"
+                @update:model-value="(val) => toggleSecondary(idx, senseItem.originalIndex, val)" color="primary"
+                class="text-grey-4">
+                <template v-slot:default>
+                  <span>{{ typeof senseItem.item === 'string' ? senseItem.item : senseItem.item.text }}</span>
+                  <span v-if="senseItem.item.reading" class="text-grey-5"> ({{ senseItem.item.reading }})</span>
+                </template>
+              </q-checkbox>
+
+              <!-- Show more/less button -->
+              <q-btn v-if="getSensesList(it).length > SENSES_PREVIEW_LIMIT" flat dense size="sm"
+                :label="secondaryExpanded[idx] ? 'Show less' : `Show ${getSensesList(it).length - SENSES_PREVIEW_LIMIT} more...`"
+                class="text-grey-5" @click="secondaryExpanded[idx] = !secondaryExpanded[idx]" />
+            </div>
+          </div>
+        </q-card>
+      </q-expansion-item>
+    </div>
   </div>
 </template>
 
@@ -109,6 +124,10 @@ const props = defineProps({
   secondaryItems: {
     type: Array,
     default: () => []
+  },
+  addingItems: {
+    type: Set,
+    default: () => new Set()
   }
 })
 
@@ -303,3 +322,9 @@ function emitAddSecondary(idx, it) {
 
 
 </script>
+
+<style scoped>
+.title-button {
+  font-size: 0.6rem;
+}
+</style>

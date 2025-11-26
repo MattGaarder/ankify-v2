@@ -1,1 +1,29 @@
 // app global css in SCSS form
+
+// Global dark scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1d1d1d; // Dark track
+}
+
+::-webkit-scrollbar-thumb {
+  background: #424242; // Darker grey thumb
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #616161; // Lighter grey on hover
+}
+
+body {
+  overflow: hidden; // Prevent body scroll, let specific containers scroll
+}
+
+.q-page-container {
+  height: 100vh;
+  overflow-y: auto;
+}

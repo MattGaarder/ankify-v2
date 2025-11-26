@@ -36,6 +36,9 @@ import { contextBridge, ipcRenderer } from 'electron'
 contextBridge.exposeInMainWorld('ankify', {
   hidePopover: () => ipcRenderer.invoke('window:hide'),
   closePopover: () => ipcRenderer.invoke('window:close'),
+  minimize: () => ipcRenderer.invoke('window:minimize'),
+  toggleMaximize: () => ipcRenderer.invoke('window:toggle-maximize'),
+  resize: (width, height) => ipcRenderer.invoke('window:resize', { width, height }),
   dictLookup: (text) => ipcRenderer.invoke('dict:lookup', text),
   log: (...args) => ipcRenderer.send('ankify:log', args),
   invokeAnki: (action, params) => ipcRenderer.invoke('ankiconnect:invoke', {action, params}),
